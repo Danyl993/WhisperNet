@@ -265,7 +265,17 @@ export default function AdminPage() {
                 }
                 style={{ cursor: "pointer" }}
               >
-                <span className="status status-open">
+                <span
+                  className={`status ${
+                    issue.status === "OPEN"
+                      ? "status-open"
+                      : issue.status === "IN_PROGRESS"
+                      ? "status-progress"
+                      : issue.status === "RESOLVED"
+                      ? "status-resolved"
+                      : "status-closed"
+                  }`}
+                >
                   {issue.status.replace("_", " ")}
                 </span>
 

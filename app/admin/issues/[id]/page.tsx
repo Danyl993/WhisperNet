@@ -372,7 +372,10 @@ export default function AdminIssuePage() {
                 <div
                   className="issue-card"
                   key={history.history_id}
-                >
+                > 
+                  <p>
+                    <strong>Issue:</strong> {issue.title}
+                  </p>
                   <h3>
                     {history.old_status
                       ? `${history.old_status.replace(
@@ -481,6 +484,10 @@ export default function AdminIssuePage() {
                   className="issue-card"
                   key={response.response_id}
                 >
+                  <p>
+                    <strong>Issue:</strong> {issue.title}
+                  </p>
+
                   <p>{response.response}</p>
 
                   <div className="issue-meta">
