@@ -183,7 +183,11 @@ export default function AdminPage() {
               <div
                 className="issue-card"
                 key={issue.issue_id}
-              >
+                onClick={() =>
+                    router.push(`/admin/issues/${issue.issue_id}`)
+                }
+                style={{ cursor: "pointer" }}
+             >
                 <span className="status status-open">
                   {issue.status.replace("_", " ")}
                 </span>
