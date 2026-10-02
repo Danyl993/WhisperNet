@@ -160,7 +160,7 @@ export default function LoginPage() {
               <br />
               User: user1@whispernet.test / user123
               <br />
-              Admin: admin@whispernet.test / admin123
+              Admin : admin@whispernet.test / Admin@123
             </div>
           </div>
         </div>
