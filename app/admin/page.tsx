@@ -146,6 +146,7 @@ export default function AdminPage() {
             </p>
           </div>
 
+          {/* Summary */}
           <div className="issue-grid">
 
             <div className="issue-card">
@@ -170,6 +171,80 @@ export default function AdminPage() {
 
           </div>
 
+          {/* Analytics */}
+          <div className="section-header">
+            <h2>Analytics</h2>
+            <p>
+              Overview of issues by status, priority,
+              and category.
+            </p>
+          </div>
+
+          <div className="issue-grid">
+
+            {/* Status Analytics */}
+            <div className="issue-card">
+              <h3>By Status</h3>
+
+              {data.analytics.status.map((item) => (
+                <div
+                  className="issue-meta"
+                  key={item.status}
+                >
+                  <span>
+                    {item.status?.replace("_", " ")}
+                  </span>
+
+                  <span>
+                    {item.issue_count}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Priority Analytics */}
+            <div className="issue-card">
+              <h3>By Priority</h3>
+
+              {data.analytics.priority.map((item) => (
+                <div
+                  className="issue-meta"
+                  key={item.priority}
+                >
+                  <span>
+                    {item.priority}
+                  </span>
+
+                  <span>
+                    {item.issue_count}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Category Analytics */}
+            <div className="issue-card">
+              <h3>By Category</h3>
+
+              {data.analytics.category.map((item) => (
+                <div
+                  className="issue-meta"
+                  key={item.category_id}
+                >
+                  <span>
+                    {item.category_name}
+                  </span>
+
+                  <span>
+                    {item.issue_count}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Issues */}
           <div className="section-header">
             <h2>Issues</h2>
             <p>
@@ -184,10 +259,12 @@ export default function AdminPage() {
                 className="issue-card"
                 key={issue.issue_id}
                 onClick={() =>
-                    router.push(`/admin/issues/${issue.issue_id}`)
+                  router.push(
+                    `/admin/issues/${issue.issue_id}`
+                  )
                 }
                 style={{ cursor: "pointer" }}
-             >
+              >
                 <span className="status status-open">
                   {issue.status.replace("_", " ")}
                 </span>
@@ -196,6 +273,10 @@ export default function AdminPage() {
 
                 <p>
                   Category: {issue.category_name}
+                </p>
+
+                <p>
+                  Priority: {issue.priority}
                 </p>
 
                 <div className="issue-meta">
