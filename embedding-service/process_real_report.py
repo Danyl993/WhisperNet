@@ -11,7 +11,6 @@ def get_report(report_id: int):
     """
     Fetch a report's details from MySQL.
     """
-
     connection = get_mysql_connection()
 
     try:
@@ -40,7 +39,6 @@ def find_similar_reports(text: str):
     Generate an embedding and find the top-K
     semantically similar reports in Supabase.
     """
-
     embedding = generate_embedding(text)
 
     with get_connection() as connection:
@@ -64,7 +62,6 @@ def find_issue_for_report(connection, report_id: int):
     """
     Find the issue currently associated with a report.
     """
-
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -89,7 +86,6 @@ def detect_issue(report_text: str):
     Determine whether the report should be linked
     to an existing issue or create a new issue.
     """
-
     similar_reports = find_similar_reports(report_text)
 
     connection = get_mysql_connection()
@@ -120,6 +116,7 @@ def detect_issue(report_text: str):
                 issue_scores.setdefault(issue_id, [])
                 issue_scores[issue_id].append(similarity)
 
+        # No sufficiently similar report belongs to an existing issue
         if not issue_scores:
             return {
                 "action": "CREATE_ISSUE",
@@ -127,10 +124,10 @@ def detect_issue(report_text: str):
                 "similarity": None
             }
 
+        # Select the issue having the highest similarity
         best_issue_id = max(
             issue_scores,
-            key=lambda issue_id:
-                max(issue_scores[issue_id])
+            key=lambda issue_id: max(issue_scores[issue_id])
         )
 
         best_similarity = max(
@@ -151,7 +148,6 @@ def store_embedding(report_id: int, text: str):
     """
     Generate and store the report embedding in Supabase.
     """
-
     embedding = generate_embedding(text)
 
     with get_connection() as connection:
@@ -178,6 +174,9 @@ def process_report(report_id: int):
     """
     Process an existing MySQL report.
 
+    If the report is already linked:
+        Do nothing.
+
     If a matching issue exists:
         Link the report to that issue.
 
@@ -185,28 +184,46 @@ def process_report(report_id: int):
         Create a new issue and link the report to it.
     """
 
+    # ---------------------------------------------------------
+    # 1. Fetch report
+    # ---------------------------------------------------------
+
     report = get_report(report_id)
 
     if report is None:
         print(f"Report {report_id} does not exist.")
-        return
+
+        return {
+            "action": "REPORT_NOT_FOUND",
+            "issue_id": None,
+            "similarity": None
+        }
 
     report_id, category_id, title, description = report
 
     print("\n" + "=" * 70)
     print(f"PROCESSING REPORT {report_id}")
     print("=" * 70)
+
     print(f"Title: {title}")
     print(f"Description: {description}")
     print(f"Category ID: {category_id}")
 
     report_text = f"{title}. {description}"
 
-    # Store or update the embedding BEFORE checking
-    # whether the report is already linked to an issue.
-    store_embedding(report_id, report_text)
+    # ---------------------------------------------------------
+    # 2. Store / update embedding
+    # ---------------------------------------------------------
 
-    # Check whether this report is already linked.
+    store_embedding(
+        report_id,
+        report_text
+    )
+
+    # ---------------------------------------------------------
+    # 3. Check whether report is already linked
+    # ---------------------------------------------------------
+
     existing_issue = None
 
     connection = get_mysql_connection()
@@ -217,7 +234,8 @@ def process_report(report_id: int):
                 """
                 SELECT issue_id
                 FROM ISSUE_REPORTS
-                WHERE report_id = %s;
+                WHERE report_id = %s
+                LIMIT 1;
                 """,
                 (report_id,),
             )
@@ -230,19 +248,35 @@ def process_report(report_id: int):
     finally:
         connection.close()
 
+    # IMPORTANT:
+    # Everything inside this block is indented.
     if existing_issue is not None:
+
         print(
             f"\nReport {report_id} is already linked "
             f"to Issue {existing_issue}."
         )
-        print("No database changes were made.")
-        return
 
-    # Detect whether the report belongs to an existing issue.
+        print("No database changes were made.")
+
+        return {
+            "action": "ALREADY_LINKED",
+            "issue_id": existing_issue,
+            "similarity": None
+        }
+
+    # ---------------------------------------------------------
+    # 4. Detect matching issue
+    # ---------------------------------------------------------
+
     result = detect_issue(report_text)
 
     print("\nDetection result:")
     print(result)
+
+    # ---------------------------------------------------------
+    # 5. Link to existing issue OR create new issue
+    # ---------------------------------------------------------
 
     connection = get_mysql_connection()
 
@@ -250,6 +284,10 @@ def process_report(report_id: int):
         connection.start_transaction()
 
         with connection.cursor() as cursor:
+
+            # -------------------------------------------------
+            # Existing issue found
+            # -------------------------------------------------
 
             if result["action"] == "LINK_TO_ISSUE":
 
@@ -259,9 +297,17 @@ def process_report(report_id: int):
                 cursor.execute(
                     """
                     INSERT INTO ISSUE_REPORTS
-                        (issue_id, report_id, similarity_score)
+                        (
+                            issue_id,
+                            report_id,
+                            similarity_score
+                        )
                     VALUES
-                        (%s, %s, %s);
+                        (
+                            %s,
+                            %s,
+                            %s
+                        );
                     """,
                     (
                         issue_id,
@@ -274,6 +320,10 @@ def process_report(report_id: int):
                     f"\nReport {report_id} linked "
                     f"to Issue {issue_id}."
                 )
+
+            # -------------------------------------------------
+            # No existing issue found
+            # -------------------------------------------------
 
             else:
 
@@ -306,6 +356,7 @@ def process_report(report_id: int):
                 issue_id = cursor.lastrowid
                 similarity = None
 
+                # Link the new issue to the report
                 cursor.execute(
                     """
                     INSERT INTO ISSUE_REPORTS
@@ -333,9 +384,21 @@ def process_report(report_id: int):
                     f"for Report {report_id}."
                 )
 
+        # -----------------------------------------------------
+        # 6. Commit transaction
+        # -----------------------------------------------------
+
         connection.commit()
 
-        print("Database transaction committed successfully.")
+        print(
+            "Database transaction committed successfully."
+        )
+
+        return {
+            "action": result["action"],
+            "issue_id": issue_id,
+            "similarity": similarity
+        }
 
     except Exception as error:
 
@@ -343,6 +406,8 @@ def process_report(report_id: int):
 
         print("\nDatabase transaction rolled back.")
         print("Error:", error)
+
+        raise
 
     finally:
         connection.close()
