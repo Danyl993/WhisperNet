@@ -7,6 +7,10 @@ const pool = mysql.createPool({
   database: process.env.MYSQL_DATABASE,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
+
+  // MySQL DATETIME values are stored as UTC in this project.
+  // Tell mysql2 to interpret them as UTC instead of local server time.
+  timezone: "Z",
 });
 
 function getUserFromCookie(request: Request) {
@@ -60,6 +64,7 @@ async function getAdmin(request: Request) {
   return users[0];
 }
 
+// GET ADMIN ISSUE DETAILS
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -100,7 +105,7 @@ export async function GET(
         i.status,
         i.created_at,
         i.updated_at,
-        c.category_id,
+        i.category_id,
         c.name AS category_name
       FROM ISSUES i
       JOIN CATEGORIES c
@@ -136,12 +141,12 @@ export async function GET(
       JOIN REPORTS r
         ON ir.report_id = r.report_id
       WHERE ir.issue_id = ?
-      ORDER BY r.created_at DESC;
+      ORDER BY ir.similarity_score DESC;
       `,
       [issueId]
     );
 
-    const [supportRows] = await pool.execute(
+    const [supporterRows] = await pool.execute(
       `
       SELECT COUNT(*) AS supporter_count
       FROM ISSUE_SUPPORTERS
@@ -187,29 +192,32 @@ export async function GET(
       success: true,
       issue: issues[0],
       reports: reportRows,
-      supporter_count:
-        (supportRows as mysql.RowDataPacket[])[0]
-          ?.supporter_count || 0,
+      supporter_count: Number(
+        (supporterRows as mysql.RowDataPacket[])[0].supporter_count
+      ),
       status_history: historyRows,
       admin_responses: responseRows,
     });
   } catch (error) {
-    console.error("Admin issue details error:", error);
+    console.error("Admin issue GET error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load issue details",
+        error: "Failed to load issue",
       },
       { status: 500 }
     );
   }
 }
 
+// UPDATE ADMIN ISSUE
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const connection = await pool.getConnection();
+
   try {
     const admin = await getAdmin(request);
 
@@ -237,7 +245,16 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, priority } = body;
+
+    const status =
+      typeof body.status === "string"
+        ? body.status
+        : undefined;
+
+    const priority =
+      typeof body.priority === "string"
+        ? body.priority
+        : undefined;
 
     const validStatuses = [
       "OPEN",
@@ -292,96 +309,95 @@ export async function PATCH(
       );
     }
 
-    const connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    try {
-      await connection.beginTransaction();
+    const [issueRows] = await connection.execute(
+      `
+      SELECT status, priority
+      FROM ISSUES
+      WHERE issue_id = ?
+      FOR UPDATE;
+      `,
+      [issueId]
+    );
 
-      const [issueRows] = await connection.execute(
-        `
-        SELECT issue_id, status, priority
-        FROM ISSUES
-        WHERE issue_id = ?
-        FOR UPDATE;
-        `,
-        [issueId]
+    const issues = issueRows as mysql.RowDataPacket[];
+
+    if (issues.length === 0) {
+      await connection.rollback();
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Issue not found",
+        },
+        { status: 404 }
       );
+    }
 
-      const issues = issueRows as mysql.RowDataPacket[];
+    const oldStatus = issues[0].status;
+    const oldPriority = issues[0].priority;
 
-      if (issues.length === 0) {
-        await connection.rollback();
+    const newStatus =
+      status !== undefined
+        ? status
+        : oldStatus;
 
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Issue not found",
-          },
-          { status: 404 }
-        );
-      }
+    const newPriority =
+      priority !== undefined
+        ? priority
+        : oldPriority;
 
-      const oldStatus = issues[0].status;
-      const oldPriority = issues[0].priority;
+    await connection.execute(
+      `
+      UPDATE ISSUES
+      SET
+        status = ?,
+        priority = ?
+      WHERE issue_id = ?;
+      `,
+      [
+        newStatus,
+        newPriority,
+        issueId,
+      ]
+    );
 
-      const newStatus =
-        status !== undefined
-          ? status
-          : oldStatus;
-
-      const newPriority =
-        priority !== undefined
-          ? priority
-          : oldPriority;
-
+    if (oldStatus !== newStatus) {
       await connection.execute(
         `
-        UPDATE ISSUES
-        SET status = ?, priority = ?
-        WHERE issue_id = ?;
+        INSERT INTO STATUS_HISTORY (
+          issue_id,
+          changed_by,
+          old_status,
+          new_status
+        )
+        VALUES (?, ?, ?, ?);
         `,
-        [newStatus, newPriority, issueId]
+        [
+          issueId,
+          admin.user_id,
+          oldStatus,
+          newStatus,
+        ]
       );
-
-      if (newStatus !== oldStatus) {
-        await connection.execute(
-          `
-          INSERT INTO STATUS_HISTORY (
-            issue_id,
-            changed_by,
-            old_status,
-            new_status
-          )
-          VALUES (?, ?, ?, ?);
-          `,
-          [
-            issueId,
-            admin.user_id,
-            oldStatus,
-            newStatus,
-          ]
-        );
-      }
-
-      await connection.commit();
-
-      return NextResponse.json({
-        success: true,
-        message: "Issue updated successfully",
-        issue: {
-          issue_id: issueId,
-          status: newStatus,
-          priority: newPriority,
-        },
-      });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
     }
+
+    await connection.commit();
+
+    return NextResponse.json({
+      success: true,
+      message: "Issue updated successfully",
+      issue: {
+        issue_id: issueId,
+        status: newStatus,
+        priority: newPriority,
+      },
+    });
   } catch (error) {
-    console.error("Admin issue update error:", error);
+    await connection.rollback();
+
+    console.error("Admin issue PATCH error:", error);
 
     return NextResponse.json(
       {
@@ -390,5 +406,7 @@ export async function PATCH(
       },
       { status: 500 }
     );
+  } finally {
+    connection.release();
   }
 }

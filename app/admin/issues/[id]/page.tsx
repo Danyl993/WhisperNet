@@ -393,11 +393,16 @@ export default function AdminIssuePage() {
                   </p>
 
                   <p>
-                    {new Date(
-                        history.changed_at.replace(" ", "T")
-                        ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        })}
+                    {new Intl.DateTimeFormat("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      day: "numeric",
+                      month: "numeric",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: true,
+                    }).format(new Date(history.changed_at))}
                   </p>
                 </div>
               ))
@@ -484,11 +489,18 @@ export default function AdminIssuePage() {
                     </span>
 
                     <span>
-                      {new Date(
-                        response.created_at.replace(" ", "T")
-                        ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        })}
+                      <span>
+                        {new Intl.DateTimeFormat("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          day: "numeric",
+                          month: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: true,
+                        }).format(new Date(response.created_at))}
+                      </span>
                     </span>
                   </div>
                 </div>
