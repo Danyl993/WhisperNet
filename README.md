@@ -58,6 +58,25 @@ The main user flows are:
 4. Students can see active issues, support them, and view closed issues in the closed section. Their activity page shows the status of their report and the latest admin response attached to its issue.
 5. An admin updates an issue, sends a response, and can review status history and dashboard analytics.
 
+## Screenshots
+
+### Home Page
+![WhisperNet Home Page](docs/screenshots/home.png)
+
+### SiginIn Page
+![SiginIn Page](docs/screenshots/signin_page.png)
+
+### Student's Dashboard
+![Student's Dashboard](docs/screenshots/student's_dashboard.png)
+
+### Issue Reporting Page
+![Issue Reporting Page](docs/screenshots/report_page.png)
+
+### Admin Dashboard
+![Admin Dashboard](docs/screenshots/admin-dashboard1.png)
+
+![Admin Dashboard](docs/screenshots/admin-dashboard2.png)
+
 ## Getting started
 
 ### Prerequisites
