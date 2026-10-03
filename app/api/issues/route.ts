@@ -37,9 +37,14 @@ export async function GET() {
         i.created_at DESC;
     `);
 
+    const allIssues = rows as mysql.RowDataPacket[];
+    const issues = allIssues.filter((issue) => issue.status !== "CLOSED");
+    const closedIssues = allIssues.filter((issue) => issue.status === "CLOSED");
+
     return NextResponse.json({
       success: true,
-      issues: rows,
+      issues,
+      closedIssues,
     });
   } catch (error) {
     console.error("Issue fetch error:", error);

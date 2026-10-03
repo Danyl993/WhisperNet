@@ -85,13 +85,25 @@ export default function Navbar() {
           )}
 
           {user && (
-            <button
-              onClick={handleLogout}
-              className="nav-button"
-              type="button"
-            >
-              Logout
-            </button>
+            <details className="account-menu">
+              <summary className="account-trigger" aria-label="Open account menu" title={user.name}>
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+                </svg>
+              </summary>
+              <div className="account-dropdown">
+                <div className="account-identity">
+                  <strong>{user.name}</strong>
+                  <span>{user.email}</span>
+                  <small>{user.role === "ADMIN" ? "Administrator" : "Student"}</small>
+                </div>
+                {user.role === "ADMIN" && <Link href="/admin">Admin Dashboard</Link>}
+                {user.role !== "ADMIN" && <Link href="/activity">My Activity</Link>}
+                <Link href="/account/password">Reset password</Link>
+                <button type="button" onClick={handleLogout}>Log out</button>
+              </div>
+            </details>
           )}
 
           <Link

@@ -25,6 +25,7 @@ export default function ReportPage() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [issueId, setIssueId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   // Check whether the user is logged in
@@ -86,8 +87,11 @@ export default function ReportPage() {
       }
 
       setMessage(
-        `Report submitted successfully! Your report ID is ${data.report_id}.`
+        data.semantic_result?.action === "LINK_TO_ISSUE"
+          ? `Report submitted and added to matching Issue #${data.issue_id}.`
+          : `Report submitted and added to new Issue #${data.issue_id}.`
       );
+      setIssueId(data.issue_id ?? null);
 
       setCategoryId("");
       setTitle("");
@@ -222,8 +226,13 @@ export default function ReportPage() {
             </form>
 
             {message && (
-              <div className="success-message">
+              <div className="success-message" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                 {message}
+                {issueId && (
+                  <Link href={`/issues/${issueId}`} className="primary-button">
+                    View issue
+                  </Link>
+                )}
               </div>
             )}
 

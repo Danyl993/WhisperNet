@@ -10,6 +10,8 @@ type Report = {
   description: string;
   status: string;
   created_at: string;
+  issue_id: number | null;
+  admin_response: string | null;
 };
 
 type SupportedIssue = {
@@ -198,7 +200,7 @@ export default function ActivityPage() {
                     className="issue-card"
                     key={report.report_id}
                   >
-                    <span className="status status-open">
+                    <span className={`status ${report.status === "CLOSED" ? "status-closed" : report.status === "RESOLVED" ? "status-resolved" : report.status === "IN_PROGRESS" ? "status-progress" : "status-open"}`}>
                       {report.status}
                     </span>
 
@@ -213,10 +215,23 @@ export default function ActivityPage() {
                     <p>
                       {report.description}
                     </p>
+                    {report.admin_response && (
+                      <div className="response-preview">
+                        <strong>Latest admin response</strong>
+                        <p>{report.admin_response}</p>
+                      </div>
+                    )}
 
                     <span className="report-count">
                       Report #{report.report_id}
                     </span>
+                    {report.issue_id && (
+                      <div style={{ marginTop: "16px" }}>
+                        <Link href={`/issues/${report.issue_id}`} className="secondary-button">
+                          View related issue
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 ))}
 

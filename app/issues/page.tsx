@@ -17,6 +17,7 @@ type Issue = {
 
 export default function IssuesPage() {
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [closedIssues, setClosedIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +46,7 @@ export default function IssuesPage() {
         }
 
         setIssues(data.issues);
+        setClosedIssues(data.closedIssues || []);
       } catch (err) {
         setError(
           err instanceof Error
@@ -67,9 +69,36 @@ export default function IssuesPage() {
         return "status-progress";
       case "RESOLVED":
         return "status-resolved";
+      case "CLOSED":
+        return "status-closed";
       default:
         return "status-open";
     }
+  }
+
+  function renderIssueCards(items: Issue[]) {
+    return (
+      <div className="issue-grid">
+        {items.map((issue) => (
+          <Link href={`/issues/${issue.issue_id}`} className="issue-card" key={issue.issue_id}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <span className={`status ${getStatusClass(issue.status)}`}>
+                {issue.status.replace("_", " ")}
+              </span>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: issue.priority === "URGENT" ? "#a33a3a" : "#777d8d" }}>
+                {issue.priority}
+              </span>
+            </div>
+            <h3>{issue.title}</h3>
+            <p>{issue.description}</p>
+            <div className="issue-meta">
+              <span className="report-count">{issue.report_count} {issue.report_count === 1 ? "report" : "reports"}</span>
+              <span className="report-count">{issue.supporter_count} {issue.supporter_count === 1 ? "supporter" : "supporters"}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -127,91 +156,26 @@ export default function IssuesPage() {
                 </div>
               )}
 
-              {!loading &&
-                authenticated &&
-                !error &&
-                issues.length === 0 && (
-                  <div className="form-card">
-                    <h2>No issues found</h2>
+              {!loading && authenticated && !error && (
+                <>
+                  <section>
+                    <div className="section-header"><h2>Active Issues</h2></div>
+                    {issues.length === 0 ? (
+                      <div className="form-card"><p className="form-description">There are no active issues right now.</p></div>
+                    ) : renderIssueCards(issues)}
+                  </section>
 
-                    <p className="form-description">
-                      No campus issues have been
-                      created yet.
-                    </p>
-                  </div>
-                )}
-
-              {!loading &&
-                authenticated &&
-                !error &&
-                issues.length > 0 && (
-                  <div className="issue-grid">
-                    {issues.map((issue) => (
-                      <Link
-                        href={`/issues/${issue.issue_id}`}
-                        className="issue-card"
-                        key={issue.issue_id}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent:
-                              "space-between",
-                            alignItems: "center",
-                            marginBottom: "14px",
-                          }}
-                        >
-                          <span
-                            className={`status ${getStatusClass(
-                              issue.status
-                            )}`}
-                          >
-                            {issue.status.replace(
-                              "_",
-                              " "
-                            )}
-                          </span>
-
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: 700,
-                              color:
-                                issue.priority ===
-                                "URGENT"
-                                  ? "#a33a3a"
-                                  : "#777d8d",
-                            }}
-                          >
-                            {issue.priority}
-                          </span>
-                        </div>
-
-                        <h3>{issue.title}</h3>
-
-                        <p>
-                          {issue.description}
-                        </p>
-
-                        <div className="issue-meta">
-                          <span className="report-count">
-                            {issue.report_count}{" "}
-                            {issue.report_count === 1
-                              ? "report"
-                              : "reports"}
-                          </span>
-
-                          <span className="report-count">
-                            {issue.supporter_count}{" "}
-                            {issue.supporter_count === 1
-                              ? "supporter"
-                              : "supporters"}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                  <section style={{ marginTop: "56px" }}>
+                    <div className="section-header">
+                      <h2>Closed Issues</h2>
+                      <p>Issues closed by campus administrators remain available here for students.</p>
+                    </div>
+                    {closedIssues.length === 0 ? (
+                      <div className="form-card"><p className="form-description">There are no closed issues yet.</p></div>
+                    ) : renderIssueCards(closedIssues)}
+                  </section>
+                </>
+              )}
             </>
           )}
 

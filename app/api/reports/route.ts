@@ -170,7 +170,7 @@ export async function POST(request: Request) {
     // 6. Run semantic processing
     // ---------------------------------------------------------
 
-    let semanticResult = null;
+    let semanticResult: { action?: string; issue_id?: number; similarity?: number; fallback?: boolean } | null = null;
 
     try {
       const semanticResponse = await fetch(
@@ -187,8 +187,8 @@ export async function POST(request: Request) {
       );
 
       if (semanticResponse.ok) {
-        semanticResult =
-          await semanticResponse.json();
+        const payload = await semanticResponse.json();
+        semanticResult = payload.result || payload;
       } else {
         console.error(
           "Semantic service returned:",
@@ -203,6 +203,48 @@ export async function POST(request: Request) {
       );
     }
 
+    // Keep reports visible as issues even when the optional embedding service
+    // is down or its Postgres/vector store is unavailable.
+    if (!Number.isInteger(semanticResult?.issue_id)) {
+      const fallbackConnection = await pool.getConnection();
+      try {
+        await fallbackConnection.beginTransaction();
+
+        const [existingLinks] = await fallbackConnection.execute(
+          `SELECT issue_id FROM ISSUE_REPORTS WHERE report_id = ? LIMIT 1 FOR UPDATE`,
+          [reportId]
+        );
+        const links = existingLinks as mysql.RowDataPacket[];
+
+        if (links.length > 0) {
+          semanticResult = {
+            action: "ALREADY_LINKED",
+            issue_id: Number(links[0].issue_id),
+            fallback: true,
+          };
+        } else {
+          const [issueInsert] = await fallbackConnection.execute(
+            `INSERT INTO ISSUES (category_id, title, description, priority, status) VALUES (?, ?, ?, 'MEDIUM', 'OPEN')`,
+            [category_id, title, description]
+          );
+          const issueId = (issueInsert as mysql.ResultSetHeader).insertId;
+
+          await fallbackConnection.execute(
+            `INSERT INTO ISSUE_REPORTS (issue_id, report_id, similarity_score) VALUES (?, ?, NULL)`,
+            [issueId, reportId]
+          );
+          semanticResult = { action: "CREATE_ISSUE", issue_id: issueId, fallback: true };
+        }
+
+        await fallbackConnection.commit();
+      } catch (error) {
+        await fallbackConnection.rollback();
+        throw error;
+      } finally {
+        fallbackConnection.release();
+      }
+    }
+
     // ---------------------------------------------------------
     // 7. Return response
     // ---------------------------------------------------------
@@ -210,6 +252,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       report_id: reportId,
+      issue_id: semanticResult?.issue_id ?? null,
       message: "Report submitted successfully",
       semantic_result: semanticResult,
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 
@@ -41,6 +41,38 @@ export default function AdminPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [adminNotice, setAdminNotice] = useState("");
+  const [adminError, setAdminError] = useState("");
+
+  async function handleCreateAdmin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingAdmin(true);
+    setAdminNotice("");
+    setAdminError("");
+
+    try {
+      const response = await fetch("/api/admin/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: adminName, email: adminEmail, password: adminPassword }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not create admin account.");
+
+      setAdminNotice(`Admin account created for ${result.admin.email}. They can now sign in with the password you set.`);
+      setAdminName("");
+      setAdminEmail("");
+      setAdminPassword("");
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Could not create admin account.");
+    } finally {
+      setCreatingAdmin(false);
+    }
+  }
 
   useEffect(() => {
     async function loadDashboard() {
@@ -301,6 +333,33 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+
+          <section className="form-card" style={{ maxWidth: "620px", marginTop: "56px" }}>
+            <div className="hero-badge">Administrator access</div>
+            <h2 style={{ marginTop: "12px" }}>Create an admin account</h2>
+            <p className="form-description">
+              New administrators can manage campus issues and analytics. This form is available only to signed-in admins.
+            </p>
+            <form onSubmit={handleCreateAdmin}>
+              <div className="form-group">
+                <label htmlFor="admin-name">Name</label>
+                <input id="admin-name" value={adminName} onChange={(event) => setAdminName(event.target.value)} minLength={2} maxLength={100} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="admin-email">Email (username)</label>
+                <input id="admin-email" type="email" autoComplete="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="admin-password">Temporary password</label>
+                <input id="admin-password" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} required />
+              </div>
+              {adminNotice && <div className="success-message">{adminNotice}</div>}
+              {adminError && <div className="error-message">{adminError}</div>}
+              <button className="submit-button" type="submit" disabled={creatingAdmin}>
+                {creatingAdmin ? "Creating account..." : "Create Admin Account"}
+              </button>
+            </form>
+          </section>
 
         </div>
       </main>

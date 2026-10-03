@@ -16,12 +16,6 @@ CREATE TABLE CATEGORIES (
     description TEXT
 );
 
-CREATE TABLE CATEGORIES (
-    category_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT
-);
-
 CREATE TABLE REPORTS (
     report_id INT AUTO_INCREMENT PRIMARY KEY,
     category_id INT NOT NULL,
@@ -367,9 +361,9 @@ INSERT INTO CATEGORIES (name, description) VALUES
 ('Canteen', 'Food and canteen-related issues');
 
 INSERT INTO USERS (name, email, password_hash, role) VALUES
-('Admin User', 'admin@whispernet.test', 'test_hash_admin', 'ADMIN'),
-('Test User 1', 'user1@whispernet.test', 'test_hash_1', 'USER'),
-('Test User 2', 'user2@whispernet.test', 'test_hash_2', 'USER');
+('Admin User', 'admin@whispernet.test', '$2b$10$UmoiLsb86DTj7pXD/4ROR.kiOouvcleXB7M9IGVRFbhqXwmfuYMBi', 'ADMIN'),
+('Test User 1', 'user1@whispernet.test', '$2b$10$WUMW90JdcfoO77O0d5bycuXifA8zEw44di3dvLfgQQJ2JWGKE5n.G', 'USER'),
+('Test User 2', 'user2@whispernet.test', '$2b$10$WUMW90JdcfoO77O0d5bycuXifA8zEw44di3dvLfgQQJ2JWGKE5n.G', 'USER');
 
 INSERT INTO REPORTS (category_id, title, description, status) VALUES
 (1, 'Missing course materials', 'Important lecture materials are not uploaded on time.', 'PENDING'),
@@ -651,7 +645,7 @@ INSERT INTO USERS (name, email, password_hash, role)
 VALUES (
     'WhisperNet Admin',
     'admin@whispernet.com',
-    'TEMP_PASSWORD_HASH',
+    '$2b$10$UmoiLsb86DTj7pXD/4ROR.kiOouvcleXB7M9IGVRFbhqXwmfuYMBi',
     'ADMIN'
 );
 SELECT

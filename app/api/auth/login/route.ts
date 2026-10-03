@@ -12,9 +12,17 @@ const pool = mysql.createPool({
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MYSQL_HOST || !process.env.MYSQL_DATABASE || !process.env.MYSQL_USER) {
+      return NextResponse.json(
+        { success: false, error: "Database is not configured. Add MYSQL_HOST, MYSQL_DATABASE, MYSQL_USER and MYSQL_PASSWORD to the project root .env.local file, then restart the app." },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
 
-    const { email, password } = body;
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
 
     if (!email || !password) {
       return NextResponse.json(
@@ -101,12 +109,17 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Login error:", error);
 
+    const dbError = error as { code?: string };
+    const message = dbError.code === "ER_NO_SUCH_TABLE"
+      ? "WhisperNet tables are missing. Set up the MySQL database using database/whispernet_db.sql."
+      : "Could not connect to the database. Check the project root .env.local settings and confirm MySQL is running.";
+
     return NextResponse.json(
       {
         success: false,
-        error: "Login failed",
+        error: message,
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

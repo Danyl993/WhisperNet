@@ -8,7 +8,10 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -21,13 +24,20 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
+    if (creatingAccount && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(creatingAccount ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name,
           email,
           password,
         }),
@@ -41,7 +51,7 @@ export default function LoginPage() {
         );
       }
 
-      // Admin and regular users go to different areas.
+      // Public registration always creates a student (USER) account.
       if (data.user.role === "ADMIN") {
         router.push("/admin");
       } else {
@@ -83,17 +93,35 @@ export default function LoginPage() {
             style={{ maxWidth: "460px" }}
           >
             <div className="hero-badge">
-              Welcome back
+              {creatingAccount ? "Student registration" : "Welcome back"}
             </div>
 
-            <h1>Sign in to WhisperNet</h1>
+            <h1>{creatingAccount ? "Create your student account" : "Sign in to WhisperNet"}</h1>
 
             <p className="form-description">
-              Sign in to view your activity, support issues,
-              and access features available to your account.
+              {creatingAccount
+                ? "Join WhisperNet to report campus problems, support issues, and track your activity."
+                : "Sign in to view your activity, support issues, and access features available to your account."}
             </p>
 
             <form onSubmit={handleSubmit}>
+              {creatingAccount && (
+                <div className="form-group">
+                  <label htmlFor="name">Full name</label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Your name"
+                    autoComplete="name"
+                    minLength={2}
+                    maxLength={100}
+                    required
+                  />
+                </div>
+              )}
+
               <div className="form-group">
                 <label htmlFor="email">
                   Email
@@ -107,6 +135,7 @@ export default function LoginPage() {
                     setEmail(event.target.value)
                   }
                   placeholder="you@example.com"
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -124,9 +153,29 @@ export default function LoginPage() {
                     setPassword(event.target.value)
                   }
                   placeholder="Enter your password"
+                  autoComplete={creatingAccount ? "new-password" : "current-password"}
+                  minLength={creatingAccount ? 8 : undefined}
+                  maxLength={72}
                   required
                 />
               </div>
+
+              {creatingAccount && (
+                <div className="form-group">
+                  <label htmlFor="confirmPassword">Confirm password</label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={72}
+                    required
+                  />
+                </div>
+              )}
 
               {error && (
                 <div className="error-message">
@@ -141,26 +190,23 @@ export default function LoginPage() {
               >
                 {loading
                   ? "Signing in..."
-                  : "Sign In"}
+                  : creatingAccount ? "Create Student Account" : "Sign In"}
               </button>
             </form>
 
-            <div
-              style={{
-                marginTop: "24px",
-                padding: "14px",
-                background: "#f7f8fc",
-                borderRadius: "9px",
-                fontSize: "13px",
-                color: "#777d8d",
-                lineHeight: 1.6,
-              }}
-            >
-              <strong>Demo accounts</strong>
-              <br />
-              User: user1@whispernet.test / user123
-              <br />
-              Admin : admin@whispernet.test / Admin@123
+            <div style={{ marginTop: "20px", textAlign: "center", fontSize: "14px" }}>
+              {creatingAccount ? "Already have an account? " : "New student? "}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setCreatingAccount(!creatingAccount);
+                  setError("");
+                }}
+                style={{ color: "#4f46e5", background: "none", border: 0, cursor: "pointer", font: "inherit", fontWeight: 600 }}
+              >
+                {creatingAccount ? "Sign in" : "Create a student account"}
+              </button>
             </div>
           </div>
         </div>

@@ -58,6 +58,45 @@ export async function GET(request: Request) {
       );
     }
 
+    // Repair legacy reports that were saved before issue detection completed.
+    // This makes previously orphaned reports visible on the Issues page too.
+    const [unlinkedReports] = await pool.execute(
+      `
+      SELECT r.report_id, r.category_id, r.title, r.description
+      FROM REPORT_AUTHORS ra
+      JOIN REPORTS r ON r.report_id = ra.report_id
+      LEFT JOIN ISSUE_REPORTS ir ON ir.report_id = r.report_id
+      WHERE ra.user_id = ? AND ir.report_id IS NULL
+      `,
+      [userId]
+    );
+    for (const report of unlinkedReports as mysql.RowDataPacket[]) {
+      const [existingLinks] = await pool.execute(
+        `SELECT issue_id FROM ISSUE_REPORTS WHERE report_id = ? LIMIT 1`,
+        [report.report_id]
+      );
+      if ((existingLinks as mysql.RowDataPacket[]).length > 0) continue;
+
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        const [created] = await connection.execute(
+          `INSERT INTO ISSUES (category_id, title, description, priority, status) VALUES (?, ?, ?, 'MEDIUM', 'OPEN')`,
+          [report.category_id, report.title, report.description]
+        );
+        await connection.execute(
+          `INSERT INTO ISSUE_REPORTS (issue_id, report_id, similarity_score) VALUES (?, ?, NULL)`,
+          [(created as mysql.ResultSetHeader).insertId, report.report_id]
+        );
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    }
+
     // User's submitted reports
     const [reports] = await pool.execute(
       `
@@ -65,11 +104,26 @@ export async function GET(request: Request) {
         r.report_id,
         r.title,
         r.description,
-        r.status,
-        r.created_at
+        COALESCE(i.status, r.status) AS status,
+        r.created_at,
+        ir.issue_id,
+        (
+          SELECT ar.response
+          FROM ADMIN_RESPONSES ar
+          WHERE ar.issue_id = ir.issue_id
+          ORDER BY ar.created_at DESC, ar.response_id DESC
+          LIMIT 1
+        ) AS admin_response
       FROM REPORT_AUTHORS ra
       INNER JOIN REPORTS r
         ON ra.report_id = r.report_id
+      LEFT JOIN (
+        SELECT report_id, MIN(issue_id) AS issue_id
+        FROM ISSUE_REPORTS
+        GROUP BY report_id
+      ) ir ON ir.report_id = r.report_id
+      LEFT JOIN ISSUES i
+        ON i.issue_id = ir.issue_id
       WHERE ra.user_id = ?
       ORDER BY r.created_at DESC;
       `,

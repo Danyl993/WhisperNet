@@ -13,6 +13,13 @@ type Report = {
   similarity_score: number | null;
 };
 
+type AdminResponse = {
+  response_id: number;
+  response: string;
+  created_at: string;
+  admin_name: string;
+};
+
 type Issue = {
   issue_id: number;
   category_id: number;
@@ -36,6 +43,7 @@ export default function IssueDetailsPage({
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [adminResponses, setAdminResponses] = useState<AdminResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -60,6 +68,7 @@ export default function IssueDetailsPage({
 
       setIssue(data.issue);
       setReports(data.reports);
+      setAdminResponses(data.admin_responses || []);
     } catch (err) {
       setError(
         err instanceof Error
@@ -228,7 +237,7 @@ export default function IssueDetailsPage({
                 flexWrap: "wrap",
               }}
             >
-              <span className="status status-open">
+              <span className={`status ${issue.status === "CLOSED" ? "status-closed" : issue.status === "RESOLVED" ? "status-resolved" : issue.status === "IN_PROGRESS" ? "status-progress" : "status-open"}`}>
                 {issue.status.replace(
                   "_",
                   " "
@@ -266,7 +275,9 @@ export default function IssueDetailsPage({
                   textAlign: "right",
                 }}
               >
-                {!issue.is_supported ? (
+                {issue.status === "CLOSED" ? (
+                  <span className="status status-closed">This issue is closed</span>
+                ) : !issue.is_supported ? (
                   <button
                     className="primary-button"
                     onClick={handleSupport}
@@ -372,6 +383,32 @@ export default function IssueDetailsPage({
               </p>
             )}
           </div>
+
+          <section style={{ marginTop: "40px" }}>
+            <div className="section-header">
+              <h2>Responses from administrators</h2>
+              <p>Official updates about this campus issue.</p>
+            </div>
+            {adminResponses.length === 0 ? (
+              <div className="form-card">
+                <p className="form-description">There are no administrator responses yet.</p>
+              </div>
+            ) : (
+              <div className="issue-grid">
+                {adminResponses.map((response) => (
+                  <article className="issue-card" key={response.response_id}>
+                    <p>{response.response}</p>
+                    <div className="issue-meta">
+                      <span className="report-count">{response.admin_name}</span>
+                      <time className="report-count" dateTime={response.created_at}>
+                        {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(response.created_at))}
+                      </time>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* Related Reports */}
           <section style={{ marginTop: "50px" }}>

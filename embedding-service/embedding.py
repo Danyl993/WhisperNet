@@ -10,4 +10,4 @@ def generate_embedding(text: str) -> list[float]:
     """
     Convert text into a 384-dimensional semantic embedding.
     """
-    return model.encode(text).tolist()
+    return model.encode(text, normalize_embeddings=True).tolist()

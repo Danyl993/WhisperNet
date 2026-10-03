@@ -155,6 +155,21 @@ export async function GET(
       [issueId]
     );
 
+    const [adminResponses] = await pool.execute(
+      `
+      SELECT
+        ar.response_id,
+        ar.response,
+        ar.created_at,
+        u.name AS admin_name
+      FROM ADMIN_RESPONSES ar
+      JOIN USERS u ON u.user_id = ar.admin_id
+      WHERE ar.issue_id = ?
+      ORDER BY ar.created_at DESC, ar.response_id DESC;
+      `,
+      [issueId]
+    );
+
     return NextResponse.json({
       success: true,
 
@@ -164,6 +179,7 @@ export async function GET(
       },
 
       reports,
+      admin_responses: adminResponses,
     });
   } catch (error) {
     console.error(
